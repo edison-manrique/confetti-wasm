@@ -1,0 +1,6 @@
+{
+  "name": "ZeroAlloc Confetti WASM",
+  "description": "Motor de confeti de alto rendimiento en AssemblyScript con arquitectura Structure-of-Arrays (SoA) zero-alloc, pruebas automatizadas y benchmark en tiempo real.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

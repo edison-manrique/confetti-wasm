@@ -1,0 +1,29 @@
+{
+  "targets": {
+    "debug": {
+      "outFile": "public/confetti.wasm",
+      "textFile": "public/confetti.wat",
+      "sourceMap": true,
+      "debug": true,
+      "runtime": "stub",
+      "initialMemory": 15,
+      "maximumMemory": 15,
+      "enable": ["simd"]
+    },
+    "release": {
+      "outFile": "public/confetti.wasm",
+      "textFile": "public/confetti.wat",
+      "optimizeLevel": 3,
+      "shrinkLevel": 0,
+      "converge": true,
+      "noAssert": true,
+      "runtime": "stub",
+      "initialMemory": 15,
+      "maximumMemory": 15,
+      "enable": ["simd"]
+    }
+  },
+  "options": {
+    "bindings": "raw"
+  }
+}
