@@ -1,5 +1,8 @@
-import { For, Show, createSignal } from 'solid-js';
-import { BookOpen, Check, Copy, CreditCard, Rocket, Terminal } from 'lucide-solid';
+import { For, Show, createSignal, onCleanup } from 'solid-js';
+import { BookOpen, Check, Copy, CreditCard, Play, Rocket, Terminal } from 'lucide-solid';
+import { confetti } from '../engine/confettiWrapper';
+import type { CodeLanguage } from '../utils/highlightCode';
+import { CodeBlock } from './CodeBlock';
 
 interface DocsPanelProps {
   onNavigateTab: (tab: 'simulator' | 'checkout' | 'tests' | 'benchmark' | 'memory') => void;
@@ -9,166 +12,173 @@ interface CodeExample {
   id: string;
   title: string;
   filename: string;
+  language: CodeLanguage;
+  liveDemo?: 'celebrate' | 'burst';
   code: string;
 }
 
 const EXAMPLES: readonly CodeExample[] = [
   {
     id: 'quickstart',
-    title: '1. Inicio Rápido (Vanilla JS / TypeScript)',
-    filename: 'main.ts',
-    code: `import { loadConfettiWasm, renderSoAParticles } from 'confetti-wasm';
+    title: '1. Inicio Rápido (Wrapper Zero-Config en 3 líneas)',
+    filename: 'quickstart.ts',
+    language: 'ts',
+    liveDemo: 'celebrate',
+    code: `import { confetti } from 'confetti-wasm';
 
-const canvas = document.querySelector<HTMLCanvasElement>('#confetti')!;
-const ctx = canvas.getContext('2d')!;
-const dpr = Math.min(window.devicePixelRatio || 1, 2);
+// Crea el <canvas> overlay, carga confetti.wasm y detiene el rAF al finalizar
+await confetti.celebrate();
 
-// 1. Cargar e inicializar arena estática (0 allocs post-init, techo 15 págs = 960 KiB)
-const engine = await loadConfettiWasm();
-engine.init(19200, canvas.clientWidth, canvas.clientHeight);
-engine.setPhysics(980, 1.65, 0, 180);
-
-// 2. Disparar cañones dobles desde ambas esquinas inferiores
-engine.spawnDualCannons(canvas.clientWidth, canvas.clientHeight, 600, 940, (65 * Math.PI) / 180);
-
-// 3. Bucle de física SIMD + renderizado zero-copy
-let last = performance.now();
-function frame(now: number) {
-  const dt = Math.min(0.05, (now - last) / 1000);
-  last = now;
-
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
-
-  if (engine.activeCount > 0) {
-    engine.step(dt);
-    renderSoAParticles(ctx, engine, dpr);
-  }
-  requestAnimationFrame(frame);
-}
-requestAnimationFrame(frame);`,
+// Otras formas simples de disparo (grados intuitivos y origen normalizado 0..1)
+confetti({ count: 220, spread: 90, origin: { x: 0.5, y: 0.6 } });
+confetti.cannons({ countPerSide: 360, speed: 940 });
+confetti.rain({ count: 280 });`,
   },
   {
-    id: 'solidjs',
-    title: '2. Integración en SolidJS (Celebración de Pago Exitoso)',
-    filename: 'PaymentCelebration.tsx',
-    code: `import { createSignal, onCleanup, onMount } from 'solid-js';
-import { ConfettiEngine, loadConfettiWasm, renderSoAParticles } from 'confetti-wasm';
+    id: 'scoped-solid',
+    title: '2. Contenedor o Tarjeta en SolidJS / React (createConfetti)',
+    filename: 'PaymentButton.tsx',
+    language: 'tsx',
+    liveDemo: 'burst',
+    code: `import { onCleanup, onMount } from 'solid-js';
+import { createConfetti, type ConfettiController } from 'confetti-wasm';
 
-export function PaymentCelebration() {
-  let canvasRef: HTMLCanvasElement | undefined;
-  let engine: ConfettiEngine | null = null;
-  let rafId = 0;
-  const [paid, setPaid] = createSignal(false);
+export function CheckoutCard() {
+  let cardEl: HTMLDivElement | undefined;
+  let fx: ConfettiController | null = null;
 
-  const runLoop = () => {
-    if (rafId || !canvasRef || !engine) return;
-    const ctx = canvasRef.getContext('2d');
-    if (!ctx) return;
-    let last = performance.now();
-
-    const tick = (now: number) => {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      ctx.clearRect(0, 0, canvasRef!.width, canvasRef!.height);
-      engine!.step(dt);
-      renderSoAParticles(ctx, engine!, 1);
-      rafId = engine!.activeCount > 0 ? requestAnimationFrame(tick) : 0;
-    };
-    rafId = requestAnimationFrame(tick);
-  };
-
-  onMount(async () => {
-    engine = await loadConfettiWasm();
-    engine.init(19200, window.innerWidth, window.innerHeight);
+  onMount(() => {
+    // Se ajusta automáticamente al contenedor con ResizeObserver y DPR nativo
+    fx = createConfetti({
+      container: cardEl,
+      physics: { gravity: 840, drag: 1.55, turbulence: 160 },
+    });
   });
 
-  onCleanup(() => cancelAnimationFrame(rafId));
-
-  const celebrate = () => {
-    setPaid(true);
-    engine?.spawnDualCannons(window.innerWidth, window.innerHeight, 360, 940, 1.1);
-    runLoop();
-  };
+  onCleanup(() => fx?.destroy());
 
   return (
-    <div class="relative">
-      <button onClick={celebrate}>{paid() ? 'Pago Aprobado' : 'Pagar Ahora'}</button>
-      <canvas ref={canvasRef} class="pointer-events-none fixed inset-0 z-50" />
+    <div ref={cardEl} class="rounded-xl p-6">
+      <button onClick={() => fx?.celebrate()}>Confirmar Pago</button>
     </div>
   );
 }`,
   },
   {
+    id: 'advanced',
+    title: '3. API Avanzada Zero-Copy SoA (ConfettiEngine)',
+    filename: 'advanced-engine.ts',
+    language: 'ts',
+    code: `import { loadConfettiWasm, renderSoAParticles } from 'confetti-wasm';
+
+const canvas = document.querySelector<HTMLCanvasElement>('#confetti')!;
+const ctx = canvas.getContext('2d')!;
+const engine = await loadConfettiWasm();
+
+// Reserva estática en arena (< 1 MB) y lectura directa sin copias
+engine.init(19200, canvas.clientWidth, canvas.clientHeight);
+engine.spawnDualCannons(canvas.clientWidth, canvas.clientHeight, 600, 940, 1.13);
+
+const frame = () => {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (engine.step(1 / 60) > 0) {
+    renderSoAParticles(ctx, engine, window.devicePixelRatio || 1);
+    requestAnimationFrame(frame);
+  }
+};
+requestAnimationFrame(frame);`,
+  },
+  {
     id: 'ghpages',
-    title: '3. Publicar en GitHub Pages y npm (OIDC Trusted Publishing)',
+    title: '4. Publicar en GitHub Pages y npm (OIDC Trusted Publishing)',
     filename: 'publish.sh',
+    language: 'bash',
     code: `# A. Subir repositorio y activar GitHub Pages (.github/workflows/deploy-pages.yml)
 git init
 git add .
-git commit -m "feat: confetti-wasm v1.0.0"
+git commit -m "feat: confetti-wasm wrapper y docs"
 git branch -M main
 git remote add origin https://github.com/TU_USUARIO/confetti-wasm.git
 git push -u origin main
-# En GitHub: Settings -> Pages -> Source: "GitHub Actions"
 
-# B. Publicar en npm con sello "OIDC GitHub Actions" (.github/workflows/publish-npm.yml)
-# 1) Primer publish único para crear el paquete en npmjs.com:
+# B. Publicar en npm con sello OIDC GitHub Actions (.github/workflows/publish-npm.yml)
 npm login && npm run build:lib && npm publish --access public
-# 2) En npmjs.com/package/confetti-wasm/access -> Trusted Publisher -> GitHub Actions:
-#    Workflow filename: publish-npm.yml (sin NPM_TOKEN ni Bypass 2FA)
-# 3) Siguientes versiones automáticas por OIDC:
 npm version patch && git push origin main --follow-tags`,
   },
 ];
 
-const API_METHODS = [
+const WRAPPER_API_METHODS = [
   {
-    signature: 'ConfettiEngine.fromUrl(url?)',
+    signature: 'confetti(options?) / confetti.burst(options?)',
+    params: '{ count?, speed?, spread?, angle?, origin?, size?, life? }',
+    description:
+      'Dispara una ráfaga en un canvas overlay automático. Usa grados intuitivos (90° = arriba) y origen normalizado { x: 0..1, y: 0..1 }.',
+  },
+  {
+    signature: 'confetti.cannons(options?)',
+    params: '{ countPerSide?, speed?, spread? }',
+    description:
+      'Lanza cañones dobles desde las esquinas inferiores en una sola invocación WASM SIMD.',
+  },
+  {
+    signature: 'confetti.celebrate(options?)',
+    params: '{ cannonCount?, showerCount?, delayMs? }',
+    description:
+      'Secuencia en 2 oleadas (cañones + lluvia superior) lista para confirmaciones de pago y logros.',
+  },
+  {
+    signature: 'confetti.rain(options?)',
+    params: '{ count?, speed?, spread? }',
+    description:
+      'Emite una lluvia descendente suave desde el borde superior del viewport o contenedor.',
+  },
+  {
+    signature: 'createConfetti(options?)',
+    params: '{ canvas?, container?, physics?, capacity?, maxDpr?, seed? }',
+    description:
+      'Crea un controlador independiente con ResizeObserver, auto-pausa rAF (0% CPU en reposo) y respeto a prefers-reduced-motion.',
+  },
+  {
+    signature: 'fx.setPhysics(patch) / fx.clear() / fx.destroy()',
+    params: 'Partial<PhysicsOptions>',
+    description:
+      'Ajusta gravedad, arrastre, viento o turbulencia en vivo, limpia partículas activas o desmonta listeners y canvas.',
+  },
+] as const;
+
+const ENGINE_API_METHODS = [
+  {
+    signature: 'loadConfettiWasm(url?) / ConfettiEngine.fromUrl(url?)',
     params: 'url?: string',
     description:
-      'Descarga e instancia confetti.wasm. Por defecto resuelve import.meta.env.BASE_URL + "confetti.wasm" (compatible con subrutas de GitHub Pages).',
+      'Descarga e instancia confetti.wasm sin wrapper de bucle ni canvas (ideal para renderizadores WebGL/Canvas propios).',
   },
   {
     signature: 'engine.init(capacity, width, height)',
     params: 'capacity <= 19200, width, height',
     description:
-      'Configura los límites de la arena estática (49 B/partícula) y enlaza las vistas zero-copy Float32Array / Uint8Array sobre memory.buffer.',
-  },
-  {
-    signature: 'engine.setPhysics(gravity, drag, wind, turbulence)',
-    params: 'f32, f32, f32, f32',
-    description:
-      'Actualiza gravedad (px/s²), arrastre exponencial (1/s), viento lateral y turbulencia sinusoidal sin reiniciar partículas activas.',
-  },
-  {
-    signature: 'engine.spawnBurst(x, y, count, speed, spreadRad, angleRad, sMin, sMax, lMin, lMax)',
-    params: '10 parámetros numéricos',
-    description:
-      'Emite una ráfaga radial usando el PRNG xorshift32 interno y trigonometría parabólica rápida dentro de WASM.',
-  },
-  {
-    signature: 'engine.spawnDualCannons(width, height, countPerSide, speed, spreadRad)',
-    params: 'f32, f32, i32, f32, f32',
-    description:
-      'Dispara simultáneamente cañones en ambas esquinas inferiores (6% y 94% del ancho) en una sola invocación WASM.',
+      'Configura los límites de la arena estática (49 B/partícula) y enlaza las vistas Float32Array / Uint8Array zero-copy.',
   },
   {
     signature: 'engine.step(dt)',
     params: 'dt: number (segundos)',
     description:
-      'Integra todas las partículas en dos pasadas: vectorización SIMD f32x4 (4 partículas/ciclo) y compactación O(1) swap-remove.',
+      'Integra la física con vectorización SIMD f32x4 (4 partículas/ciclo) y compactación O(1) swap-remove.',
   },
   {
-    signature: 'engine.resize(width, height) / clear() / secureWipe()',
-    params: 'width, height',
+    signature: 'engine.secureWipe()',
+    params: 'void',
     description:
-      'Ajusta el plano de recorte inferior, reinicia activeCount o pone a cero los 963,328 bytes de la arena estática.',
+      'Limpia el contador activo y pone a cero los 963,328 bytes completos de la arena estática.',
   },
 ] as const;
 
 export function DocsPanel(props: DocsPanelProps) {
   const [copiedId, setCopiedId] = createSignal<string | null>(null);
+
+  onCleanup(() => {
+    confetti.clear();
+  });
 
   const copySnippet = async (id: string, code: string) => {
     try {
@@ -182,6 +192,14 @@ export function DocsPanel(props: DocsPanelProps) {
     }
   };
 
+  const runLiveDemo = (mode: 'celebrate' | 'burst') => {
+    if (mode === 'celebrate') {
+      void confetti.celebrate({ cannonCount: 280, showerCount: 360, delayMs: 200 });
+    } else {
+      void confetti({ count: 220, spread: 100, origin: { x: 0.5, y: 0.55 } });
+    }
+  };
+
   return (
     <section aria-labelledby="docs-heading" class="space-y-6">
       {/* Header Banner */}
@@ -189,34 +207,44 @@ export function DocsPanel(props: DocsPanelProps) {
         <div class="space-y-1.5 max-w-2xl">
           <div class="inline-flex items-center gap-2 font-mono text-xs text-cyan-300">
             <BookOpen class="h-4 w-4" aria-hidden="true" />
-            <span>DOCUMENTACIÓN OFICIAL · v1.0.0</span>
+            <span>DOCUMENTACIÓN OFICIAL · WRAPPER ZERO-CONFIG</span>
           </div>
           <h1 id="docs-heading" class="font-display text-2xl font-bold tracking-tight text-slate-100">
-            Guía de uso de <span class="text-cyan-300 font-mono">confetti-wasm</span>
+            Guía rápida de <span class="text-cyan-300 font-mono">confetti-wasm</span>
           </h1>
           <p class="text-sm text-slate-400 leading-relaxed">
-            Librería de confeti física en AssemblyScript WebAssembly diseñada para cero asignaciones en heap
-            (&lt; 1 MB de memoria total fija), vectorización SIMD <code class="font-mono text-xs text-slate-200">v128</code> y
-            renderizado 2D a 60 FPS sin pausas de Garbage Collector.
+            Usa el wrapper de alto nivel <code class="font-mono text-xs text-emerald-300">confetti</code> en
+            una sola línea sin configurar canvas ni bucles <code class="font-mono text-xs text-sky-300">rAF</code>,
+            o accede directamente al motor <code class="font-mono text-xs text-cyan-300">ConfettiEngine</code> SoA
+            zero-alloc (&lt; 1 MB · SIMD <code class="font-mono text-xs text-amber-300">v128</code>).
           </p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
-            onClick={() => props.onNavigateTab('simulator')}
-            class="inline-flex items-center gap-1.5 rounded-md bg-cyan-500 px-3.5 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition-colors cursor-pointer"
+            data-testid="docs-try-celebrate"
+            onClick={() => runLiveDemo('celebrate')}
+            class="inline-flex items-center gap-1.5 rounded-md bg-cyan-500 px-3.5 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
-            <Rocket class="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Abrir Simulador</span>
+            <Play class="h-3.5 w-3.5" aria-hidden="true" />
+            <span>Probar confetti.celebrate()</span>
           </button>
           <button
             type="button"
             onClick={() => props.onNavigateTab('checkout')}
-            class="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/70 px-3.5 py-2 text-xs font-medium text-slate-100 hover:bg-slate-800 transition-colors cursor-pointer"
+            class="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/70 px-3.5 py-2 text-xs font-medium text-slate-100 hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             <CreditCard class="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
             <span>Ver Demo Pago Exitoso</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => props.onNavigateTab('simulator')}
+            class="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/70 px-3.5 py-2 text-xs font-medium text-slate-100 hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            <Rocket class="h-3.5 w-3.5 text-cyan-400" aria-hidden="true" />
+            <span>Abrir Simulador</span>
           </button>
         </div>
       </div>
@@ -224,29 +252,30 @@ export function DocsPanel(props: DocsPanelProps) {
       {/* 3-Card Architectural Highlights */}
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="rounded-lg border border-slate-800 bg-[#0D111A] p-4 space-y-1.5">
-          <div class="font-mono text-xs text-cyan-300">BINARIO ULTRALIGERO</div>
-          <div class="font-display text-base font-semibold text-slate-100">4.8 KiB (.wasm)</div>
+          <div class="font-mono text-xs text-cyan-300">WRAPPER EN 1 LÍNEA</div>
+          <div class="font-display text-base font-semibold text-slate-100">Cero Boilerplate</div>
           <p class="text-xs text-slate-400">
-            Compilado con <code class="font-mono text-slate-300">--runtime stub --converge</code> y sin cadenas de error ni GC interno.
+            <code class="font-mono text-emerald-300">confetti.celebrate()</code> gestiona el canvas, DPR,{' '}
+            <code class="font-mono text-sky-300">ResizeObserver</code> y auto-pausa el loop al terminar.
           </p>
         </div>
         <div class="rounded-lg border border-slate-800 bg-[#0D111A] p-4 space-y-1.5">
           <div class="font-mono text-xs text-emerald-400">ARENA ESTÁTICA &lt; 1 MB</div>
           <div class="font-display text-base font-semibold text-slate-100">15 páginas fijas (960 KiB)</div>
           <p class="text-xs text-slate-400">
-            Reserva única en <code class="font-mono text-slate-300">memory.data</code> para hasta 19,200 partículas a 49 B/partícula.
+            Reserva única en <code class="font-mono text-sky-300">memory.data</code> para hasta 19,200 partículas a 49 B/partícula y binario de 4.8 KiB.
           </p>
         </div>
         <div class="rounded-lg border border-slate-800 bg-[#0D111A] p-4 space-y-1.5">
           <div class="font-mono text-xs text-amber-300">ZERO-COPY TYPED ARRAYS</div>
           <div class="font-display text-base font-semibold text-slate-100">13 Carriles SoA SIMD</div>
           <p class="text-xs text-slate-400">
-            JavaScript lee posiciones y rotaciones directamente desde <code class="font-mono text-slate-300">WebAssembly.Memory</code> sin serialización.
+            Física vectorizada <code class="font-mono text-amber-300">f32x4</code> en WASM sin asignaciones ni pausas de Garbage Collector.
           </p>
         </div>
       </div>
 
-      {/* Code Examples with Copy Buttons */}
+      {/* Code Examples with Syntax Highlighting & Copy Buttons */}
       <div class="space-y-4">
         <For each={EXAMPLES}>
           {(ex) => (
@@ -255,42 +284,97 @@ export function DocsPanel(props: DocsPanelProps) {
                 <div class="flex items-center gap-2.5">
                   <Terminal class="h-4 w-4 text-cyan-400" aria-hidden="true" />
                   <h2 class="font-display text-sm font-semibold text-slate-100">{ex.title}</h2>
-                  <span class="font-mono text-xs text-slate-500">{ex.filename}</span>
+                  <span class="font-mono text-xs text-slate-500">
+                    {ex.filename} · {ex.language.toUpperCase()}
+                  </span>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => void copySnippet(ex.id, ex.code)}
-                  class="inline-flex items-center gap-1.5 rounded border border-slate-700 bg-slate-800/80 px-2.5 py-1 font-mono text-xs text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
-                >
-                  <Show
-                    when={copiedId() === ex.id}
-                    fallback={
-                      <>
-                        <Copy class="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-                        <span>Copiar</span>
-                      </>
-                    }
-                  >
-                    <Check class="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
-                    <span class="text-emerald-300">Copiado</span>
+                <div class="flex items-center gap-2">
+                  <Show when={ex.liveDemo}>
+                    {(mode) => (
+                      <button
+                        type="button"
+                        onClick={() => runLiveDemo(mode())}
+                        class="inline-flex items-center gap-1.5 rounded border border-cyan-500/40 bg-cyan-500/10 px-2.5 py-1 font-mono text-xs text-cyan-300 hover:bg-cyan-500/20 transition-colors cursor-pointer"
+                      >
+                        <Play class="h-3 w-3" aria-hidden="true" />
+                        <span>Probar</span>
+                      </button>
+                    )}
                   </Show>
-                </button>
+
+                  <button
+                    type="button"
+                    onClick={() => void copySnippet(ex.id, ex.code)}
+                    class="inline-flex items-center gap-1.5 rounded border border-slate-700 bg-slate-800/80 px-2.5 py-1 font-mono text-xs text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    <Show
+                      when={copiedId() === ex.id}
+                      fallback={
+                        <>
+                          <Copy class="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+                          <span>Copiar</span>
+                        </>
+                      }
+                    >
+                      <Check class="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
+                      <span class="text-emerald-300">Copiado</span>
+                    </Show>
+                  </button>
+                </div>
               </div>
-              <pre class="overflow-x-auto p-4 font-mono text-xs leading-relaxed text-slate-200 bg-[#07090E]">
-                <code>{ex.code}</code>
-              </pre>
+              <CodeBlock code={ex.code} language={ex.language} />
             </article>
           )}
         </For>
       </div>
 
-      {/* API Reference Table */}
+      {/* Wrapper API Reference Table */}
       <div class="rounded-xl border border-slate-800 bg-[#0D111A] overflow-hidden">
-        <div class="border-b border-slate-800 px-5 py-4">
+        <div class="border-b border-slate-800 px-5 py-4 flex flex-wrap items-baseline justify-between gap-2">
           <h2 class="font-display text-base font-semibold text-slate-100">
-            Referencia Rápida de API (<code class="font-mono text-sm text-cyan-300">ConfettiEngine</code>)
+            API Fácil — Wrapper (<code class="font-mono text-sm text-emerald-300">confetti</code> /{' '}
+            <code class="font-mono text-sm text-cyan-300">createConfetti</code>)
           </h2>
+          <span class="text-xs text-slate-500">Recomendado para el 95% de aplicaciones web</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-800 bg-[#07090E]/60 font-mono text-[11px] uppercase text-slate-400">
+                <th class="px-5 py-3">Función / Método</th>
+                <th class="px-5 py-3">Opciones</th>
+                <th class="px-5 py-3">Descripción</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/70 text-xs">
+              <For each={WRAPPER_API_METHODS}>
+                {(method) => (
+                  <tr class="hover:bg-slate-800/25 align-top">
+                    <td class="px-5 py-3 font-mono font-semibold text-cyan-300 whitespace-nowrap">
+                      {method.signature}
+                    </td>
+                    <td class="px-5 py-3 font-mono text-amber-300/90 whitespace-nowrap">
+                      {method.params}
+                    </td>
+                    <td class="px-5 py-3 text-slate-300 leading-relaxed">
+                      {method.description}
+                    </td>
+                  </tr>
+                )}
+              </For>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Low-level Engine API Reference Table */}
+      <div class="rounded-xl border border-slate-800 bg-[#0D111A] overflow-hidden">
+        <div class="border-b border-slate-800 px-5 py-4 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 class="font-display text-base font-semibold text-slate-100">
+            API Avanzada Zero-Copy (<code class="font-mono text-sm text-sky-300">ConfettiEngine</code>)
+          </h2>
+          <span class="text-xs text-slate-500">Acceso directo a vistas Float32Array / Uint8Array</span>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
@@ -302,10 +386,10 @@ export function DocsPanel(props: DocsPanelProps) {
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-800/70 text-xs">
-              <For each={API_METHODS}>
+              <For each={ENGINE_API_METHODS}>
                 {(method) => (
                   <tr class="hover:bg-slate-800/25 align-top">
-                    <td class="px-5 py-3 font-mono font-semibold text-cyan-300 whitespace-nowrap">
+                    <td class="px-5 py-3 font-mono font-semibold text-sky-300 whitespace-nowrap">
                       {method.signature}
                     </td>
                     <td class="px-5 py-3 font-mono text-slate-400 whitespace-nowrap">

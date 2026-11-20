@@ -3,7 +3,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ConfettiEngine } from '../src/engine/confettiWasm';
+import {
+  degToSpreadRad,
+  degToWasmAngle,
+  resolveBurstParams,
+} from '../src/engine/confettiWrapper';
 import { runVerificationSuite, runPhysicsBenchmark } from '../src/engine/verification';
+import { tokenizeCode } from '../src/utils/highlightCode';
 
 const wasmPath = path.resolve(process.cwd(), 'public/confetti.wasm');
 const wasmBytes = fs.readFileSync(wasmPath);
@@ -64,4 +70,49 @@ test('Benchmark completes cleanly and WASM SoA + SIMD executes without buffer gr
   assert.equal(bench.wasmBufferDeltaBytes, 0);
   assert.ok(bench.wasmTotalMs > 0);
   assert.ok(bench.jsTotalMs > 0);
+});
+
+test('confettiWrapper angle & burst parameter normalization maps degrees and normalized origin accurately', () => {
+  assert.ok(Math.abs(degToWasmAngle(90) - -Math.PI / 2) < 1e-6);
+  assert.ok(Math.abs(degToWasmAngle(0) - 0) < 1e-6);
+  assert.ok(Math.abs(degToWasmAngle(180) - -Math.PI) < 1e-6);
+  assert.ok(Math.abs(degToSpreadRad(90) - Math.PI / 2) < 1e-6);
+  assert.ok(Math.abs(degToSpreadRad(500) - Math.PI * 2) < 1e-6);
+
+  const resolved = resolveBurstParams(
+    { particleCount: 250, startVelocity: 920, spread: 120, angle: 90, origin: { x: 0.25, y: 0.5 } },
+    1000,
+    800
+  );
+  assert.equal(resolved.originX, 250);
+  assert.equal(resolved.originY, 400);
+  assert.equal(resolved.count, 250);
+  assert.equal(resolved.speed, 920);
+  assert.ok(Math.abs(resolved.angleRad - -Math.PI / 2) < 1e-6);
+  assert.ok(Math.abs(resolved.spreadRad - (120 * Math.PI) / 180) < 1e-6);
+
+  // Clamping guard
+  const clamped = resolveBurstParams({ count: 999999, origin: { x: 320, y: 240 } }, 1000, 800);
+  assert.equal(clamped.count, 19200);
+  assert.equal(clamped.originX, 320);
+  assert.equal(clamped.originY, 240);
+});
+
+test('tokenizeCode preserves exact characters and assigns colorful token kinds across TS/TSX/Bash', () => {
+  const tsSample = `import { confetti } from 'confetti-wasm';\n// dispara\nawait confetti.celebrate({ count: 220 });`;
+  const tsLines = tokenizeCode(tsSample, 'ts');
+  assert.equal(tsLines.map((l) => l.map((t) => t.text).join('')).join('\n'), tsSample);
+  assert.ok(tsLines[0].some((t) => t.kind === 'keyword' && t.text === 'import'));
+  assert.ok(tsLines[0].some((t) => t.kind === 'type' && t.text === 'confetti'));
+  assert.ok(tsLines[0].some((t) => t.kind === 'string' && t.text === "'confetti-wasm'"));
+  assert.ok(tsLines[1].some((t) => t.kind === 'comment'));
+  assert.ok(tsLines[2].some((t) => t.kind === 'function' && t.text === 'celebrate'));
+  assert.ok(tsLines[2].some((t) => t.kind === 'number' && t.text === '220'));
+
+  const bashSample = `# OIDC publish\nnpm publish --access public`;
+  const bashLines = tokenizeCode(bashSample, 'bash');
+  assert.equal(bashLines.map((l) => l.map((t) => t.text).join('')).join('\n'), bashSample);
+  assert.equal(bashLines[0][0].kind, 'comment');
+  assert.ok(bashLines[1].some((t) => t.kind === 'keyword' && t.text === 'npm'));
+  assert.ok(bashLines[1].some((t) => t.kind === 'flag' && t.text === '--access'));
 });

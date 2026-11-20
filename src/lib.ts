@@ -1,4 +1,26 @@
 import { ConfettiEngine } from './engine/confettiWasm';
+import { setDefaultWasmUrlResolver } from './engine/confettiWrapper';
+
+setDefaultWasmUrlResolver(() => new URL('./confetti.wasm', import.meta.url).href);
+
+export {
+  ConfettiController,
+  confetti,
+  createConfetti,
+  degToSpreadRad,
+  degToWasmAngle,
+  resolveBurstParams,
+  type BurstOptions,
+  type CannonsOptions,
+  type CelebrateOptions,
+  type ConfettiFrameStats,
+  type ConfettiWrapperOptions,
+  type GlobalConfettiFn,
+  type NormalizedOrigin,
+  type PhysicsOptions,
+  type RainOptions,
+  type ResolvedBurstParams,
+} from './engine/confettiWrapper';
 
 export {
   CONFETTI_PALETTE,

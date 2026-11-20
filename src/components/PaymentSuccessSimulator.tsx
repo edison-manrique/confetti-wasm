@@ -1,7 +1,6 @@
 import { For, Match, Switch, createSignal, onCleanup, onMount } from 'solid-js';
 import { Check, CreditCard, Lock, RotateCcw, ShieldCheck, Sparkles } from 'lucide-solid';
-import { ConfettiEngine, getDefaultWasmUrl } from '../engine/confettiWasm';
-import { renderSoAParticles } from '../engine/spriteAtlas';
+import { createConfetti, type ConfettiController } from '../engine/confettiWrapper';
 
 interface PaymentSuccessSimulatorProps {
   wasmBytes: ArrayBuffer | null;
@@ -63,155 +62,41 @@ export function PaymentSuccessSimulator(props: PaymentSuccessSimulatorProps) {
   const [activeParticles, setActiveParticles] = createSignal(0);
   const [stepTimeMs, setStepTimeMs] = createSignal(0);
 
-  let stageRef: HTMLDivElement | undefined;
   let canvasRef: HTMLCanvasElement | undefined;
-  let localEngine: ConfettiEngine | null = null;
-  let dims = { width: 960, height: 620, dpr: 1 };
-  let timers: number[] = [];
+  let fx: ConfettiController | null = null;
+  let hudTick = 0;
+  let submitTimer = 0;
 
   const activePlan = () => PLANS.find((p) => p.id === selectedPlanId()) ?? PLANS[1];
   const totalAmount = () => (activePlan().price + activePlan().tax).toFixed(2);
 
-  let rafId = 0;
-  let lastTime = 0;
-  let hudTimer = 0;
-  let ctx2d: CanvasRenderingContext2D | null = null;
-
-  const stopLoop = () => {
-    if (rafId !== 0) {
-      cancelAnimationFrame(rafId);
-      rafId = 0;
-    }
-  };
-
-  const startLoop = () => {
-    if (rafId !== 0 || !ctx2d) return;
-    lastTime = performance.now();
-    hudTimer = 0;
-
-    const tick = (now: number) => {
-      const ctx = ctx2d;
-      if (!ctx) {
-        rafId = 0;
-        return;
-      }
-
-      const rawDt = (now - lastTime) / 1000;
-      lastTime = now;
-      const dt = rawDt > 0 && rawDt < 0.05 ? rawDt : 1 / 60;
-
-      const { width, height, dpr } = dims;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, width, height);
-
-      let measuredStep = 0;
-      if (localEngine && localEngine.activeCount > 0) {
-        const t0 = performance.now();
-        localEngine.step(dt);
-        measuredStep = performance.now() - t0;
-        renderSoAParticles(ctx, localEngine, dpr);
-      }
-
-      hudTimer += rawDt;
-      const count = localEngine ? localEngine.activeCount : 0;
-      if (hudTimer >= 0.1 || count === 0) {
-        hudTimer = 0;
-        setActiveParticles(count);
-        setStepTimeMs(measuredStep);
-      }
-
-      if (count > 0) {
-        rafId = requestAnimationFrame(tick);
-      } else {
-        rafId = 0;
-      }
-    };
-
-    rafId = requestAnimationFrame(tick);
-  };
-
   const fireCelebration = () => {
-    if (!localEngine) return;
-    const { width, height } = dims;
-    localEngine.setPhysics(840, 1.55, 0, 160);
-
-    // Stage 1: Immediate dual corner cannons via single WASM call (720 particles)
-    localEngine.spawnDualCannons(width, height, 360, 940, (64 * Math.PI) / 180);
-    setActiveParticles(localEngine.activeCount);
-    startLoop();
-
-    // Stage 2: Choreographed top-center shower 220ms later (480 particles)
-    const t1 = window.setTimeout(() => {
-      if (!localEngine) return;
-      localEngine.spawnBurst(
-        width * 0.5,
-        height * 0.24,
-        480,
-        740,
-        Math.PI * 1.35,
-        -Math.PI / 2,
-        5,
-        11,
-        2.6,
-        4.4
-      );
-      startLoop();
-    }, 220);
-
-    timers.push(t1);
+    void fx?.celebrate({ cannonCount: 360, showerCount: 480, delayMs: 220 });
   };
 
   onMount(() => {
-    if (!canvasRef || !stageRef) return;
-    const ctx = canvasRef.getContext('2d');
-    if (!ctx) return;
-    ctx2d = ctx;
+    if (!canvasRef) return;
+    fx = createConfetti({
+      canvas: canvasRef,
+      wasmBytes: props.wasmBytes ?? undefined,
+      maxDpr: 1.5,
+      respectReducedMotion: false,
+      physics: { gravity: 840, drag: 1.55, wind: 0, turbulence: 160 },
+    });
 
-    let cancelled = false;
-
-    const bootLocalWasm = async () => {
-      try {
-        const bytes =
-          props.wasmBytes ?? (await (await fetch(getDefaultWasmUrl())).arrayBuffer());
-        if (cancelled) return;
-        const eng = await ConfettiEngine.fromBytes(bytes);
-        if (cancelled) return;
-        eng.init(19200, dims.width, dims.height);
-        eng.setPhysics(840, 1.55, 0, 160);
-        localEngine = eng;
-      } catch {
-        // Handled cleanly if WASM fails
+    const unsub = fx.onFrame(({ activeCount, stepMs }) => {
+      hudTick++;
+      if (hudTick % 6 === 0 || activeCount === 0) {
+        setActiveParticles(activeCount);
+        setStepTimeMs(stepMs);
       }
-    };
-
-    void bootLocalWasm();
-
-    const updateSize = () => {
-      if (!canvasRef || !stageRef) return;
-      const rect = stageRef.getBoundingClientRect();
-      const width = Math.max(320, Math.floor(rect.width));
-      const height = Math.max(460, Math.floor(rect.height));
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-
-      canvasRef.width = Math.floor(width * dpr);
-      canvasRef.height = Math.floor(height * dpr);
-      dims = { width, height, dpr };
-
-      if (localEngine) {
-        localEngine.resize(width, height);
-      }
-    };
-
-    updateSize();
-    const ro = new ResizeObserver(updateSize);
-    ro.observe(stageRef);
+    });
 
     onCleanup(() => {
-      cancelled = true;
-      stopLoop();
-      ro.disconnect();
-      for (const id of timers) clearTimeout(id);
-      timers = [];
+      if (submitTimer) window.clearTimeout(submitTimer);
+      unsub();
+      fx?.destroy();
+      fx = null;
     });
   });
 
@@ -226,7 +111,8 @@ export function PaymentSuccessSimulator(props: PaymentSuccessSimulatorProps) {
     setFormError(null);
     setStep('processing');
 
-    const t = window.setTimeout(() => {
+    submitTimer = window.setTimeout(() => {
+      submitTimer = 0;
       const code = Math.floor(1000 + Math.random() * 8999);
       setTxId(`TXN-${code}-WASM`);
       setPaidAt(
@@ -240,18 +126,14 @@ export function PaymentSuccessSimulator(props: PaymentSuccessSimulatorProps) {
       setStep('success');
       fireCelebration();
     }, 520);
-    timers.push(t);
   };
 
   const resetCheckout = () => {
-    for (const id of timers) clearTimeout(id);
-    timers = [];
-    stopLoop();
-    localEngine?.clear();
-    if (ctx2d) {
-      ctx2d.setTransform(dims.dpr, 0, 0, dims.dpr, 0, 0);
-      ctx2d.clearRect(0, 0, dims.width, dims.height);
+    if (submitTimer) {
+      window.clearTimeout(submitTimer);
+      submitTimer = 0;
     }
+    fx?.clear();
     setActiveParticles(0);
     setStepTimeMs(0);
     setStep('form');
@@ -260,7 +142,6 @@ export function PaymentSuccessSimulator(props: PaymentSuccessSimulatorProps) {
   return (
     <section
       aria-labelledby="payment-sim-heading"
-      ref={stageRef}
       class="relative overflow-hidden rounded-xl border border-slate-800 bg-[#0A0E17] p-5 sm:p-8 min-h-[580px] flex flex-col gap-6"
     >
       {/* Subtle architectural backdrop gradient */}

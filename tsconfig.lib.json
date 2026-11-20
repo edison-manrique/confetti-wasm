@@ -15,6 +15,7 @@
   "include": [
     "src/lib.ts",
     "src/engine/confettiWasm.ts",
+    "src/engine/confettiWrapper.ts",
     "src/engine/spriteAtlas.ts"
   ]
 }
