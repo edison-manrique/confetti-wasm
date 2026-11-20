@@ -24,13 +24,16 @@ const EXAMPLES: readonly CodeExample[] = [
     filename: 'quickstart.ts',
     language: 'ts',
     liveDemo: 'celebrate',
-    code: `import { confetti } from 'confetti-wasm';
+    code: `// npm install confetti-wasm
+import { confetti } from 'confetti-wasm';
 
 // Crea el <canvas> overlay, carga confetti.wasm y detiene el rAF al finalizar
 await confetti.celebrate();
 
-// Otras formas simples de disparo (grados intuitivos y origen normalizado 0..1)
-confetti({ count: 220, spread: 90, origin: { x: 0.5, y: 0.6 } });
+// Explosión radial 360° uniforme en disco 2D (sin hueco central ni acumulación)
+confetti({ count: 260, spread: 360, origin: { x: 0.5, y: 0.55 } });
+
+// Otros presets integrados (grados intuitivos: 90° = arriba)
 confetti.cannons({ countPerSide: 360, speed: 940 });
 confetti.rain({ count: 280 });`,
   },
@@ -48,10 +51,11 @@ export function CheckoutCard() {
   let fx: ConfettiController | null = null;
 
   onMount(() => {
-    // Se ajusta automáticamente al contenedor con ResizeObserver y DPR nativo
+    // Se ajusta automáticamente al contenedor con ResizeObserver, DPR nativo y semilla determinista
     fx = createConfetti({
       container: cardEl,
-      physics: { gravity: 840, drag: 1.55, turbulence: 160 },
+      seed: 0x9E3779B9,
+      physics: { gravity: 760, drag: 2.35, wind: 0, turbulence: 210 },
     });
   });
 
@@ -66,7 +70,7 @@ export function CheckoutCard() {
   },
   {
     id: 'advanced',
-    title: '3. API Avanzada Zero-Copy SoA (ConfettiEngine)',
+    title: '3. API Avanzada Zero-Copy SoA + PRNG Determinista',
     filename: 'advanced-engine.ts',
     language: 'ts',
     code: `import { loadConfettiWasm, renderSoAParticles } from 'confetti-wasm';
@@ -75,8 +79,9 @@ const canvas = document.querySelector<HTMLCanvasElement>('#confetti')!;
 const ctx = canvas.getContext('2d')!;
 const engine = await loadConfettiWasm();
 
-// Reserva estática en arena (< 1 MB) y lectura directa sin copias
+// Reserva estática en arena (< 1 MB) y estado PRNG determinista evolutivo
 engine.init(19200, canvas.clientWidth, canvas.clientHeight);
+engine.seedRng(0x9E3779B9);
 engine.spawnDualCannons(canvas.clientWidth, canvas.clientHeight, 600, 940, 1.13);
 
 const frame = () => {
@@ -88,23 +93,6 @@ const frame = () => {
 };
 requestAnimationFrame(frame);`,
   },
-  {
-    id: 'ghpages',
-    title: '4. Publicar en GitHub Pages y npm (OIDC Trusted Publishing)',
-    filename: 'publish.sh',
-    language: 'bash',
-    code: `# A. Subir repositorio y activar GitHub Pages (.github/workflows/deploy-pages.yml)
-git init
-git add .
-git commit -m "feat: confetti-wasm wrapper y docs"
-git branch -M main
-git remote add origin https://github.com/TU_USUARIO/confetti-wasm.git
-git push -u origin main
-
-# B. Publicar en npm con sello OIDC GitHub Actions (.github/workflows/publish-npm.yml)
-npm login && npm run build:lib && npm publish --access public
-npm version patch && git push origin main --follow-tags`,
-  },
 ];
 
 const WRAPPER_API_METHODS = [
@@ -112,7 +100,7 @@ const WRAPPER_API_METHODS = [
     signature: 'confetti(options?) / confetti.burst(options?)',
     params: '{ count?, speed?, spread?, angle?, origin?, size?, life? }',
     description:
-      'Dispara una ráfaga en un canvas overlay automático. Usa grados intuitivos (90° = arriba) y origen normalizado { x: 0..1, y: 0..1 }.',
+      'Dispara una ráfaga con densidad uniforme en disco 2D. Usa grados intuitivos (90° = arriba, 360° = círculo completo) y origen normalizado { x: 0..1, y: 0..1 }.',
   },
   {
     signature: 'confetti.cannons(options?)',
@@ -136,13 +124,13 @@ const WRAPPER_API_METHODS = [
     signature: 'createConfetti(options?)',
     params: '{ canvas?, container?, physics?, capacity?, maxDpr?, seed? }',
     description:
-      'Crea un controlador independiente con ResizeObserver, auto-pausa rAF (0% CPU en reposo) y respeto a prefers-reduced-motion.',
+      'Crea un controlador independiente con ResizeObserver, semilla PRNG opcional, auto-pausa rAF (0% CPU en reposo) y respeto a prefers-reduced-motion.',
   },
   {
     signature: 'fx.setPhysics(patch) / fx.clear() / fx.destroy()',
     params: 'Partial<PhysicsOptions>',
     description:
-      'Ajusta gravedad, arrastre, viento o turbulencia en vivo, limpia partículas activas o desmonta listeners y canvas.',
+      'Ajusta gravedad (760), arrastre (2.35), viento (0) o turbulencia (210) en vivo, limpia partículas o desmonta listeners y canvas.',
   },
 ] as const;
 
@@ -157,13 +145,19 @@ const ENGINE_API_METHODS = [
     signature: 'engine.init(capacity, width, height)',
     params: 'capacity <= 19200, width, height',
     description:
-      'Configura los límites de la arena estática (49 B/partícula) y enlaza las vistas Float32Array / Uint8Array zero-copy.',
+      'Configura los límites de la arena estática (49 B/partícula), reinicia el PRNG al estado determinista base y enlaza vistas zero-copy.',
+  },
+  {
+    signature: 'engine.seedRng(seed) / getRngState() / nextRand()',
+    params: 'seed: number (u32)',
+    description:
+      'Fija o consulta el estado interno del generador xorshift32; avanza determinísticamente en cada emisión o lectura.',
   },
   {
     signature: 'engine.step(dt)',
     params: 'dt: number (segundos)',
     description:
-      'Integra la física con vectorización SIMD f32x4 (4 partículas/ciclo) y compactación O(1) swap-remove.',
+      'Integra la física con vectorización SIMD f32x4 (arrastre variable + sustentación) y compactación O(1) swap-remove.',
   },
   {
     signature: 'engine.secureWipe()',
@@ -263,14 +257,14 @@ export function DocsPanel(props: DocsPanelProps) {
           <div class="font-mono text-xs text-emerald-400">ARENA ESTÁTICA &lt; 1 MB</div>
           <div class="font-display text-base font-semibold text-slate-100">15 páginas fijas (960 KiB)</div>
           <p class="text-xs text-slate-400">
-            Reserva única en <code class="font-mono text-sky-300">memory.data</code> para hasta 19,200 partículas a 49 B/partícula y binario de 4.8 KiB.
+            Reserva única en <code class="font-mono text-sky-300">memory.data</code> para hasta 19,200 partículas a 49 B/partícula y binario de 5.3 KiB.
           </p>
         </div>
         <div class="rounded-lg border border-slate-800 bg-[#0D111A] p-4 space-y-1.5">
-          <div class="font-mono text-xs text-amber-300">ZERO-COPY TYPED ARRAYS</div>
-          <div class="font-display text-base font-semibold text-slate-100">13 Carriles SoA SIMD</div>
+          <div class="font-mono text-xs text-amber-300">SIMD + PRNG CON ESTADO</div>
+          <div class="font-display text-base font-semibold text-slate-100">13 Carriles SoA Deterministas</div>
           <p class="text-xs text-slate-400">
-            Física vectorizada <code class="font-mono text-amber-300">f32x4</code> en WASM sin asignaciones ni pausas de Garbage Collector.
+            Física vectorizada <code class="font-mono text-amber-300">f32x4</code>, densidad uniforme en disco 2D (<code class="font-mono text-cyan-300">sqrt(u)</code>) y semilla evolutiva sin pausas de GC.
           </p>
         </div>
       </div>

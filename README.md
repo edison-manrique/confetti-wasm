@@ -24,12 +24,12 @@ import { confetti } from 'confetti-wasm';
 // Crea el canvas overlay, carga confetti.wasm y se auto-detiene al finalizar
 await confetti.celebrate();
 
-// Disparo personalizado (grados intuitivos y origen normalizado 0..1)
+// Explosión radial 360° con distribución uniforme en disco 2D (grados intuitivos y origen 0..1)
 confetti({
-  count: 220,
-  spread: 90,
+  count: 260,
+  spread: 360,
   angle: 90,
-  origin: { x: 0.5, y: 0.6 },
+  origin: { x: 0.5, y: 0.55 },
 });
 
 // Otros presets integrados
@@ -39,7 +39,7 @@ confetti.rain({ count: 280 });
 
 ### 2. Contenedor o tarjeta específica (SolidJS / React / Vue / Vanilla)
 
-Usa `createConfetti` cuando quieras encerrar el confeti dentro de una tarjeta, modal o componente reutilizable con limpieza automática:
+Usa `createConfetti` cuando quieras encerrar el confeti dentro de una tarjeta, modal o componente reutilizable con limpieza automática y semilla determinista opcional:
 
 ```tsx
 import { onCleanup, onMount } from 'solid-js';
@@ -52,7 +52,8 @@ export function CheckoutSuccessCard() {
   onMount(() => {
     fx = createConfetti({
       container: cardEl,
-      physics: { gravity: 840, drag: 1.55, turbulence: 160 },
+      seed: 0x9E3779B9,
+      physics: { gravity: 760, drag: 2.35, wind: 0, turbulence: 210 },
     });
   });
 
@@ -72,12 +73,12 @@ export function CheckoutSuccessCard() {
 
 | Función / Método | Opciones principales | Descripción |
 | :--- | :--- | :--- |
-| `confetti(options?)` / `confetti.burst(options?)` | `{ count?, particleCount?, speed?, spread?, angle?, origin?, size?, life? }` | Emite una ráfaga en un canvas overlay automático (`angle: 90` apunta hacia arriba; `origin` usa coordenadas `0..1`). |
+| `confetti(options?)` / `confetti.burst(options?)` | `{ count?, particleCount?, speed?, spread?, angle?, origin?, size?, life? }` | Emite una ráfaga con densidad uniforme en disco 2D (`angle: 90` apunta arriba; `spread: 360` cubre el círculo completo sin hueco central). |
 | `confetti.cannons(options?)` | `{ countPerSide?, speed?, spread? }` | Dispara simultáneamente cañones en las esquinas inferiores izquierda y derecha. |
 | `confetti.celebrate(options?)` | `{ cannonCount?, showerCount?, delayMs? }` | Secuencia coreografiada en 2 oleadas (cañones + lluvia superior) para pagos aprobados o logros. |
 | `confetti.rain(options?)` | `{ count?, speed?, spread? }` | Lluvia suave descendente desde el borde superior. |
-| `createConfetti(options?)` | `{ canvas?, container?, wasmUrl?, wasmBytes?, capacity?, maxDpr?, zIndex?, seed?, physics?, respectReducedMotion? }` | Crea un controlador independiente con `ResizeObserver`, `rAF` bajo demanda (0% CPU en reposo) y limpieza con `.destroy()`. |
-| `fx.setPhysics(patch)` | `{ gravity?, drag?, wind?, turbulence? }` | Actualiza parámetros físicos en caliente sin reiniciar las partículas activas. |
+| `createConfetti(options?)` | `{ canvas?, container?, wasmUrl?, wasmBytes?, capacity?, maxDpr?, zIndex?, seed?, physics?, respectReducedMotion? }` | Crea un controlador independiente con `ResizeObserver`, semilla PRNG determinista, `rAF` bajo demanda (0% CPU en reposo) y limpieza con `.destroy()`. |
+| `fx.setPhysics(patch)` | `{ gravity?, drag?, wind?, turbulence? }` | Actualiza parámetros físicos en caliente (valores base: `gravity: 760`, `drag: 2.35`, `wind: 0`, `turbulence: 210`). |
 | `fx.clear()` / `fx.destroy()` | — | Limpia las partículas activas o desmonta el canvas y listeners por completo. |
 
 ---
@@ -95,7 +96,8 @@ const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
 const engine = await loadConfettiWasm();
 engine.init(19200, canvas.clientWidth, canvas.clientHeight);
-engine.setPhysics(980, 1.65, 0, 180);
+engine.seedRng(0x9E3779B9);
+engine.setPhysics(760, 2.35, 0, 210);
 
 engine.spawnDualCannons(canvas.clientWidth, canvas.clientHeight, 600, 940, (65 * Math.PI) / 180);
 
@@ -120,9 +122,10 @@ requestAnimationFrame(loop);
 | :--- | :--- |
 | `loadConfettiWasm(url?)` | Resuelve `confetti.wasm` junto al bundle ESM y devuelve una instancia lista. |
 | `ConfettiEngine.fromBytes(bytes)` | Instancia el motor a partir de un `BufferSource` ya cargado en memoria. |
-| `engine.init(capacity, width, height)` | Inicializa capacidad (`64..19200`), dimensiones del canvas y vistas `TypedArray` zero-copy. |
-| `engine.spawnBurst(...)` | Emite una ráfaga radial usando PRNG `xorshift32` y trigonometría rápida en WASM. |
-| `engine.step(dt)` | Avanza la física SIMD `f32x4` y compacta partículas expiradas con `swapRemove`. |
+| `engine.init(capacity, width, height)` | Inicializa capacidad (`64..19200`), dimensiones del canvas, reinicia el estado PRNG determinista y enlaza vistas `TypedArray` zero-copy. |
+| `engine.seedRng(seed)` / `getRngState()` / `nextRand()` | Configura o inspecciona el PRNG `xorshift32` con estado evolutivo (determinista entre ejecuciones con la misma semilla). |
+| `engine.spawnBurst(...)` | Emite una ráfaga radial con muestreo uniforme en área 2D (`sqrt(u)`), origen disperso y trigonometría rápida en WASM. |
+| `engine.step(dt)` | Avanza la física SIMD `f32x4` con arrastre variable por partícula, sustentación vertical (`tilt`) y compactación `O(1)` por `swapRemove`. |
 | `engine.clear()` / `engine.secureWipe()` | Reinicia el contador activo o sobrescribe con ceros toda la arena estática. |
 
 ---
@@ -131,8 +134,9 @@ requestAnimationFrame(loop);
 
 - **Zero-Alloc estricto (`0 B` de crecimiento post-init):** Toda la memoria se reserva en tiempo de compilación dentro del segmento estático `memory.data` (`assembly/arena.ts`), sellado con `initialMemory = maximumMemory = 15`.
 - **Huella ultra compacta (`49 B/partícula`):** 12 carriles `f32` alineados a 16 bytes + 1 carril `u8` empaquetado (`color` + `shape`), permitiendo hasta **19,200 partículas simultáneas** por debajo de 1 MB.
-- **Física SIMD `f32x4` sin divisiones:** Bucle `step(dt)` en dos pasadas con aproximación trigonométrica `fastSin4` y compactación `O(1)` por `swapRemove`.
-- **Binario minúsculo:** `public/confetti.wasm` pesa **4.8 KiB** compilado con `--runtime stub --enable simd --optimizeLevel 3 --converge --noAssert`.
+- **Explosiones 2D uniformes + PRNG con estado:** Muestreo en disco 2D (`r ~ sqrt(u)`) sin hueco central ni aglomeración, impulsado por `xorshift32` determinista cuya semilla evoluciona en cada invocación.
+- **Física SIMD `f32x4` sin divisiones:** Bucle `step(dt)` en dos pasadas con aproximación trigonométrica `fastSin4`, arrastre aerodinámico variable y compactación `O(1)` por `swapRemove`.
+- **Binario minúsculo:** `public/confetti.wasm` pesa **5.3 KiB** (`5,445 B`) compilado con `--runtime stub --enable simd --optimizeLevel 3 --converge --noAssert`.
 
 ```text
 TOTAL_ARENA_SIZE = 963,328 B  (< 1 MB, dentro de 15 páginas WASM = 983,040 B)
@@ -149,17 +153,7 @@ TOTAL_ARENA_SIZE = 963,328 B  (< 1 MB, dentro de 15 páginas WASM = 983,040 B)
 
 - `npm run dev`: Inicia el servidor de desarrollo Vite + SolidJS en el puerto `3000`.
 - `npm run build:wasm`: Compila `assembly/confetti.ts` a `public/confetti.wasm` y `public/confetti.wat`.
-- `npm run build:lib`: Compila el paquete publicable de npm en `dist-lib/` (`index.js`, `*.d.ts` y `confetti.wasm`).
-- `npm test`: Ejecuta la suite de pruebas unitarias sobre WASM, wrapper y tokenizer (`tests/confetti.test.ts`).
+- `npm run build:lib`: Compila la librería ESM en `dist-lib/` (`index.js`, `*.d.ts` y `confetti.wasm`).
+- `npm test`: Ejecuta la suite de pruebas unitarias sobre WASM, wrapper, distribución uniforme, PRNG con estado y tokenizer (`tests/confetti.test.ts`).
 - `npm run lint`: Verifica tipos TypeScript (`tsc --noEmit`).
 - `npm run build`: Compila el binario WASM y genera el bundle de producción en `dist/`.
-
----
-
-## Publicación en GitHub Pages y npm (OIDC Trusted Publishing)
-
-- **GitHub Pages (`.github/workflows/deploy-pages.yml`):** en cada `push` a `main` compila WASM, ejecuta `npm test` y despliega `./dist` con `actions/deploy-pages@v4`. Activa **Settings → Pages → Source: GitHub Actions**.
-- **npm Trusted Publishing (`.github/workflows/publish-npm.yml`):** configurado con Node 24 (`id-token: write`) sin `NPM_TOKEN` ni *Bypass 2FA*.
-  1. Primer registro único desde terminal: `npm login && npm run build:lib && npm publish --access public`.
-  2. En `npmjs.com/package/confetti-wasm/access` → **Trusted Publisher** → **GitHub Actions** indica `publish-npm.yml`.
-  3. Siguientes releases automáticos: `npm version patch && git push origin main --follow-tags`.
