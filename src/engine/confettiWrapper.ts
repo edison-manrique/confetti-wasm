@@ -109,10 +109,10 @@ export interface ResolvedBurstParams {
 }
 
 const DEFAULT_PHYSICS: PhysicsOptions = {
-  gravity: 980,
-  drag: 1.65,
+  gravity: 760,
+  drag: 2.35,
   wind: 0,
-  turbulence: 180,
+  turbulence: 210,
 };
 
 /**
@@ -152,10 +152,10 @@ export function resolveBurstParams(
   const originX = ox >= 0 && ox <= 1 ? ox * safeW : ox;
   const originY = oy >= 0 && oy <= 1 ? oy * safeH : oy;
 
-  const sizeMin = Math.max(2, opts.size?.[0] ?? 5);
-  const sizeMax = Math.max(sizeMin, opts.size?.[1] ?? 11);
+  const sizeMin = Math.max(2, opts.size?.[0] ?? 4.2);
+  const sizeMax = Math.max(sizeMin, opts.size?.[1] ?? 8.6);
   const lifeMin = Math.max(0.2, opts.life?.[0] ?? 2.4);
-  const lifeMax = Math.max(lifeMin, opts.life?.[1] ?? 4.2);
+  const lifeMax = Math.max(lifeMin, opts.life?.[1] ?? 4.4);
 
   return {
     originX,

@@ -119,14 +119,14 @@ export function ConfettiCanvas(props: ConfettiCanvasProps) {
             const streamCount = Math.max(20, Math.round(props.burst.count * 0.08));
             const spreadRad = (props.burst.spreadDeg * Math.PI) / 180;
             eng.spawnBurst(
-              width * (0.2 + Math.random() * 0.6),
+              width * (0.15 + eng.nextRand() * 0.7),
               height * 0.12,
               streamCount,
               props.burst.speed * 0.75,
               spreadRad,
               Math.PI / 2,
-              5,
-              11,
+              4.2,
+              8.6,
               2.2,
               4.2
             );
@@ -210,8 +210,8 @@ export function ConfettiCanvas(props: ConfettiCanvasProps) {
       props.burst.speed,
       spreadRad,
       -Math.PI / 2,
-      5,
-      11,
+      4.2,
+      8.6,
       2.2,
       4.4
     );

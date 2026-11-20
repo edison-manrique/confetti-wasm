@@ -21,6 +21,16 @@ declare namespace __AdaptedExports {
    */
   export function seedRng(seed: number): void;
   /**
+   * assembly/confetti/getRngState
+   * @returns `u32`
+   */
+  export function getRngState(): number;
+  /**
+   * assembly/confetti/nextRand
+   * @returns `f32`
+   */
+  export function nextRand(): number;
+  /**
    * assembly/confetti/setPhysics
    * @param newGravity `f32`
    * @param newDrag `f32`

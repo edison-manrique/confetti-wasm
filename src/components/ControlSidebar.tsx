@@ -99,9 +99,9 @@ export function ControlSidebar(props: ControlSidebarProps) {
             label="Partículas por disparo"
             value={props.burst.count}
             unit="part."
-            min={200}
+            min={100}
             max={19200}
-            step={200}
+            step={100}
             onChange={(count) => props.onChangeBurst({ ...props.burst, count })}
           />
           <SliderField

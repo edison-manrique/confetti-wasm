@@ -2,6 +2,10 @@ export async function instantiate(module, imports = {}) {
   const { exports } = await WebAssembly.instantiate(module, imports);
   const memory = exports.memory || imports.env.memory;
   const adaptedExports = Object.setPrototypeOf({
+    getRngState() {
+      // assembly/confetti/getRngState() => u32
+      return exports.getRngState() >>> 0;
+    },
     getArenaStart() {
       // assembly/confetti/getArenaStart() => usize
       return exports.getArenaStart() >>> 0;

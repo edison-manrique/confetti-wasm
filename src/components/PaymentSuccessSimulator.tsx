@@ -81,7 +81,7 @@ export function PaymentSuccessSimulator(props: PaymentSuccessSimulatorProps) {
       wasmBytes: props.wasmBytes ?? undefined,
       maxDpr: 1.5,
       respectReducedMotion: false,
-      physics: { gravity: 840, drag: 1.55, wind: 0, turbulence: 160 },
+      physics: { gravity: 720, drag: 2.25, wind: 0, turbulence: 195 },
     });
 
     const unsub = fx.onFrame(({ activeCount, stepMs }) => {

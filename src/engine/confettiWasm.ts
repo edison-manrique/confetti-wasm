@@ -11,6 +11,8 @@ export interface ConfettiWasmExports {
   init(requestedCapacity: number, width: number, height: number): number;
   resize(width: number, height: number): void;
   seedRng(seed: number): void;
+  getRngState(): number;
+  nextRand(): number;
   setPhysics(gravity: number, drag: number, wind: number, turbulence: number): void;
   spawnBurst(
     originX: number,
@@ -211,6 +213,14 @@ export class ConfettiEngine {
 
   public seedRng(seed: number): void {
     this.exports.seedRng(seed >>> 0);
+  }
+
+  public getRngState(): number {
+    return this.exports.getRngState() >>> 0;
+  }
+
+  public nextRand(): number {
+    return this.exports.nextRand();
   }
 
   public setPhysics(gravity: number, drag: number, wind: number, turbulence: number): void {

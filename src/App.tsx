@@ -34,14 +34,14 @@ export default function App() {
 
   const [paused, setPaused] = createSignal(false);
   const [physics, setPhysics] = createSignal<PhysicsConfig>({
-    gravity: 980,
-    drag: 1.65,
+    gravity: 760,
+    drag: 2.35,
     wind: 0,
-    turbulence: 180,
+    turbulence: 210,
   });
   const [burst, setBurst] = createSignal<BurstConfig>({
-    count: 1600,
-    speed: 875,
+    count: 800,
+    speed: 850,
     spreadDeg: 140,
     emitterMode: 'burst',
   });
@@ -131,12 +131,12 @@ export default function App() {
           instance.spawnBurst(
             width * 0.5,
             height * 0.62,
-            1200,
             900,
+            880,
             (140 * Math.PI) / 180,
             -Math.PI / 2,
-            5,
-            11,
+            4.2,
+            8.6,
             3.2,
             5.4
           );
@@ -174,12 +174,12 @@ export default function App() {
       eng.spawnBurst(
         dims.width * 0.5,
         dims.height * 0.62,
-        2400,
-        920,
+        1000,
+        880,
         (140 * Math.PI) / 180,
         -Math.PI / 2,
-        5,
-        11,
+        4.2,
+        8.6,
         2.2,
         4.2
       );
@@ -202,7 +202,7 @@ export default function App() {
       const half = Math.max(100, Math.round(b.count * 0.5));
       eng.spawnDualCannons(width, height, half, b.speed * 1.1, spreadRad * 0.45);
     } else {
-      eng.spawnBurst(width * 0.5, height * 0.6, b.count, b.speed, spreadRad, -Math.PI / 2, 5, 11, 2.2, 4.4);
+      eng.spawnBurst(width * 0.5, height * 0.6, b.count, b.speed, spreadRad, -Math.PI / 2, 4.2, 8.6, 2.4, 4.6);
     }
   };
 

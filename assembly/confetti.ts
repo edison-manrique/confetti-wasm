@@ -66,18 +66,19 @@ let initialized: bool = false;
 let worldWidth: f32 = 1280.0;
 let worldHeight: f32 = 720.0;
 
-// Physics parameters
-let gravity: f32 = 980.0;
-let drag: f32 = 1.65;
+// Physics parameters (tuned for lightweight paper confetti flutter)
+let gravity: f32 = 760.0;
+let drag: f32 = 2.35;
 let wind: f32 = 0.0;
-let turbulence: f32 = 180.0;
+let turbulence: f32 = 210.0;
 
 // Telemetry counters
 let totalSpawned: u32 = 0;
 let totalRecycled: u32 = 0;
 
-// Fast deterministic xorshift32 PRNG
-let rngState: u32 = 0x9E3779B9;
+// Fast deterministic xorshift32 PRNG with evolving state
+const DEFAULT_RNG_SEED: u32 = 0x9E3779B9;
+let rngState: u32 = DEFAULT_RNG_SEED;
 
 // @ts-ignore
 @inline
@@ -178,6 +179,7 @@ export function init(requestedCapacity: i32, width: f32, height: f32): i32 {
   worldHeight = height > 0.0 ? height : 720.0;
 
   Arena.reset();
+  rngState = DEFAULT_RNG_SEED;
   totalSpawned = 0;
   totalRecycled = 0;
   initialized = true;
@@ -190,7 +192,15 @@ export function resize(width: f32, height: f32): void {
 }
 
 export function seedRng(seed: u32): void {
-  rngState = seed == 0 ? 0x9E3779B9 : seed;
+  rngState = seed == 0 ? DEFAULT_RNG_SEED : seed;
+}
+
+export function getRngState(): u32 {
+  return rngState;
+}
+
+export function nextRand(): f32 {
+  return randF32();
 }
 
 export function setPhysics(
@@ -247,7 +257,7 @@ function writeParticle(
   store<f32>(P_TILT_PTR + off4, randRange(0.0, TAU_F));
   store<f32>(P_VTILT_PTR + off4, randRange(6.0, 16.0));
   store<f32>(P_WOBBLE_PTR + off4, randRange(0.0, TAU_F));
-  store<f32>(P_VWOBBLE_PTR + off4, randRange(4.0, 9.5));
+  store<f32>(P_VWOBBLE_PTR + off4, randRange(3.5, 10.5));
   store<f32>(P_SIZE_PTR + off4, size);
   store<f32>(P_REM_LIFE_PTR + off4, life);
   store<u8>(P_META_PTR + <usize>slot, packedMeta);
@@ -272,21 +282,37 @@ export function spawnBurst(
   const maxS: f32 = sizeMax >= minS ? sizeMax : minS;
   const minL: f32 = lifeMin > 0.05 ? lifeMin : 0.05;
   const maxL: f32 = lifeMax >= minL ? lifeMax : minL;
+  const countF: f32 = <f32>count;
+  const rawJitter: f32 = 6.0 + countF * 0.01;
+  const maxOriginJitter: f32 = rawJitter < 22.0 ? rawJitter : 22.0;
 
   let spawned: i32 = 0;
   for (let i: i32 = 0; i < count; i++) {
     const slot = allocSlot();
     const theta: f32 = angleRad + randRange(-halfSpread, halfSpread);
-    const speed: f32 = baseSpeed * randRange(0.35, 1.25);
-    const vx: f32 = fastCosScalar(theta) * speed;
-    const vy: f32 = fastSinScalar(theta) * speed;
+    const cosT: f32 = fastCosScalar(theta);
+    const sinT: f32 = fastSinScalar(theta);
+
+    // Uniform 2D disk radial density (r ~ sqrt(u)) + gentle outer rim feathering [0.90..1.20]:
+    // constant particles-per-unit-area from center to rim (no donut hole, no center pileup)
+    const rDisk: f32 = Mathf.sqrt(randF32());
+    const speedScale: f32 = rDisk * (0.90 + 0.30 * randF32());
+    const speed: f32 = baseSpeed * speedScale;
+
+    // Uniform disk scatter around origin point (r ~ sqrt(u))
+    const jRad: f32 = Mathf.sqrt(randF32()) * maxOriginJitter;
+    const sx: f32 = originX + cosT * jRad;
+    const sy: f32 = originY + sinT * jRad;
+
+    const vx: f32 = cosT * speed;
+    const vy: f32 = sinT * speed;
     const size: f32 = randRange(minS, maxS);
     const life: f32 = randRange(minL, maxL);
     const r = randU32();
     const colorIdx: u8 = <u8>(r % PALETTE_COUNT);
     const shape: u8 = <u8>((r >>> 8) & 3);
 
-    writeParticle(slot, originX, originY, vx, vy, size, life, colorIdx, shape);
+    writeParticle(slot, sx, sy, vx, vy, size, life, colorIdx, shape);
     spawned += 1;
   }
 
@@ -308,8 +334,8 @@ export function spawnDualCannons(
     baseSpeed,
     spreadRad,
     -1.0,
-    5.0,
-    11.0,
+    4.2,
+    8.6,
     2.4,
     4.5
   );
@@ -320,8 +346,8 @@ export function spawnDualCannons(
     baseSpeed,
     spreadRad,
     -2.14159265,
-    5.0,
-    11.0,
+    4.2,
+    8.6,
     2.4,
     4.5
   );
@@ -372,12 +398,17 @@ export function step(dt: f32): i32 {
   const gDt: f32 = gravity * dt;
   const windDt: f32 = wind * dt;
   const turbDt: f32 = turbulence * dt;
+  const dragVarScale: f32 = drag * 0.05 * dt * damp;
+  const liftScale: f32 = 0.24 * turbDt;
 
   const dtV = f32x4.splat(dt);
   const dampV = f32x4.splat(damp);
   const gDtV = f32x4.splat(gDt);
   const windDtV = f32x4.splat(windDt);
   const turbDtV = f32x4.splat(turbDt);
+  const dragCenterV = f32x4.splat(7.0);
+  const dragVarV = f32x4.splat(dragVarScale);
+  const liftScaleV = f32x4.splat(liftScale);
 
   const n = activeCount;
   const vecEnd = n & ~3;
@@ -387,15 +418,27 @@ export function step(dt: f32): i32 {
     const off: usize = <usize>i << 2;
 
     const remLife4 = f32x4.sub(v128.load(P_REM_LIFE_PTR + off), dtV);
+    const vWobble4 = v128.load(P_VWOBBLE_PTR + off);
 
     const wobble4 = f32x4.add(
       v128.load(P_WOBBLE_PTR + off),
-      f32x4.mul(v128.load(P_VWOBBLE_PTR + off), dtV)
+      f32x4.mul(vWobble4, dtV)
     );
-    const accelX4 = f32x4.add(windDtV, f32x4.mul(fastSin4(wobble4), turbDtV));
+    const tilt4 = f32x4.add(
+      v128.load(P_TILT_PTR + off),
+      f32x4.mul(v128.load(P_VTILT_PTR + off), dtV)
+    );
 
-    const vx4 = f32x4.add(f32x4.mul(v128.load(P_VX_PTR + off), dampV), accelX4);
-    const vy4 = f32x4.add(f32x4.mul(v128.load(P_VY_PTR + off), dampV), gDtV);
+    // Per-particle aerodynamic drag variance + horizontal/vertical flutter lift (0 extra memory bytes)
+    const localDamp4 = f32x4.sub(dampV, f32x4.mul(f32x4.sub(vWobble4, dragCenterV), dragVarV));
+    const accelX4 = f32x4.add(windDtV, f32x4.mul(fastSin4(wobble4), turbDtV));
+    const liftY4 = f32x4.mul(fastSin4(tilt4), liftScaleV);
+
+    const vx4 = f32x4.add(f32x4.mul(v128.load(P_VX_PTR + off), localDamp4), accelX4);
+    const vy4 = f32x4.add(
+      f32x4.mul(v128.load(P_VY_PTR + off), localDamp4),
+      f32x4.sub(gDtV, liftY4)
+    );
 
     const x4 = f32x4.add(v128.load(P_X_PTR + off), f32x4.mul(vx4, dtV));
     const y4 = f32x4.add(v128.load(P_Y_PTR + off), f32x4.mul(vy4, dtV));
@@ -403,10 +446,6 @@ export function step(dt: f32): i32 {
     const rot4 = f32x4.add(
       v128.load(P_ROT_PTR + off),
       f32x4.mul(v128.load(P_VROT_PTR + off), dtV)
-    );
-    const tilt4 = f32x4.add(
-      v128.load(P_TILT_PTR + off),
-      f32x4.mul(v128.load(P_VTILT_PTR + off), dtV)
     );
 
     v128.store(P_X_PTR + off, x4);
@@ -423,15 +462,18 @@ export function step(dt: f32): i32 {
   for (let i: i32 = vecEnd; i < n; i++) {
     const off4: usize = <usize>i << 2;
     const remLife: f32 = load<f32>(P_REM_LIFE_PTR + off4) - dt;
+    const vWobble: f32 = load<f32>(P_VWOBBLE_PTR + off4);
 
-    const wobble: f32 = load<f32>(P_WOBBLE_PTR + off4) + load<f32>(P_VWOBBLE_PTR + off4) * dt;
-    const vx: f32 = load<f32>(P_VX_PTR + off4) * damp + windDt + fastSinScalar(wobble) * turbDt;
-    const vy: f32 = load<f32>(P_VY_PTR + off4) * damp + gDt;
+    const wobble: f32 = load<f32>(P_WOBBLE_PTR + off4) + vWobble * dt;
+    const tilt: f32 = load<f32>(P_TILT_PTR + off4) + load<f32>(P_VTILT_PTR + off4) * dt;
+    const localDamp: f32 = damp - (vWobble - 7.0) * dragVarScale;
+
+    const vx: f32 = load<f32>(P_VX_PTR + off4) * localDamp + windDt + fastSinScalar(wobble) * turbDt;
+    const vy: f32 = load<f32>(P_VY_PTR + off4) * localDamp + gDt - fastSinScalar(tilt) * liftScale;
 
     const x: f32 = load<f32>(P_X_PTR + off4) + vx * dt;
     const y: f32 = load<f32>(P_Y_PTR + off4) + vy * dt;
     const rot: f32 = load<f32>(P_ROT_PTR + off4) + load<f32>(P_VROT_PTR + off4) * dt;
-    const tilt: f32 = load<f32>(P_TILT_PTR + off4) + load<f32>(P_VTILT_PTR + off4) * dt;
 
     store<f32>(P_X_PTR + off4, x);
     store<f32>(P_Y_PTR + off4, y);
