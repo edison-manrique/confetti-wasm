@@ -1,6 +1,6 @@
 import { For, Match, Switch, createSignal, onCleanup, onMount } from 'solid-js';
 import { Check, CreditCard, Lock, RotateCcw, ShieldCheck, Sparkles } from 'lucide-solid';
-import { ConfettiEngine } from '../engine/confettiWasm';
+import { ConfettiEngine, getDefaultWasmUrl } from '../engine/confettiWasm';
 import { renderSoAParticles } from '../engine/spriteAtlas';
 
 interface PaymentSuccessSimulatorProps {
@@ -171,7 +171,8 @@ export function PaymentSuccessSimulator(props: PaymentSuccessSimulatorProps) {
 
     const bootLocalWasm = async () => {
       try {
-        const bytes = props.wasmBytes ?? (await (await fetch('/confetti.wasm')).arrayBuffer());
+        const bytes =
+          props.wasmBytes ?? (await (await fetch(getDefaultWasmUrl())).arrayBuffer());
         if (cancelled) return;
         const eng = await ConfettiEngine.fromBytes(bytes);
         if (cancelled) return;
@@ -275,7 +276,7 @@ export function PaymentSuccessSimulator(props: PaymentSuccessSimulatorProps) {
             Simulador de Pago Exitoso
           </h2>
           <p class="text-xs text-slate-400">
-            Módulo SolidJS independiente integrado con el motor AssemblyScript zero-alloc (&lt; 1 MB · SIMD v128).
+            Módulo SolidJS independiente impulsado por <code class="font-mono text-cyan-300">confetti-wasm</code> (&lt; 1 MB · SIMD v128).
           </p>
         </div>
 

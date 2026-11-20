@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "dist-lib",
+    "rootDir": "src",
+    "strict": true
+  },
+  "include": [
+    "src/lib.ts",
+    "src/engine/confettiWasm.ts",
+    "src/engine/spriteAtlas.ts"
+  ]
+}

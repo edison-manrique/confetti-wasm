@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#07090E" />
+  <g stroke="#0F172A" stroke-width="1">
+    <path d="M0 90H1200M0 180H1200M0 270H1200M0 360H1200M0 450H1200M0 540H1200" />
+    <path d="M120 0V630M240 0V630M360 0V630M480 0V630M600 0V630M720 0V630M840 0V630M960 0V630M1080 0V630" />
+  </g>
+  <rect x="80" y="88" width="1040" height="454" rx="20" fill="#0B0F19" stroke="#1E293B" stroke-width="2" />
+  <rect x="130" y="150" width="38" height="18" rx="4" transform="rotate(-22 130 150)" fill="#06B6D4" />
+  <rect x="960" y="140" width="44" height="16" rx="4" transform="rotate(24 960 140)" fill="#F59E0B" />
+  <polygon points="1030,250 1054,274 1030,298 1006,274" fill="#10B981" />
+  <rect x="930" y="420" width="42" height="16" rx="4" transform="rotate(-18 930 420)" fill="#F43F5E" />
+  <circle cx="1040" cy="460" r="14" fill="#8B5CF6" />
+  <circle cx="195" cy="460" r="10" fill="#FDE047" />
+  <text x="140" y="275" fill="#22D3EE" font-family="monospace" font-size="24" font-weight="600">ASSEMBLYSCRIPT WEBASSEMBLY · SIMD v128</text>
+  <text x="140" y="348" fill="#F8FAFC" font-family="sans-serif" font-size="72" font-weight="700">confetti-wasm</text>
+  <text x="140" y="405" fill="#94A3B8" font-family="sans-serif" font-size="28">Motor SoA zero-alloc (&lt; 1 MB · 19,200 partículas · 4.8 KiB)</text>
+  <rect x="140" y="450" width="210" height="44" rx="8" fill="#0F172A" stroke="#06B6D4" stroke-opacity="0.5" />
+  <text x="165" y="479" fill="#67E8F9" font-family="monospace" font-size="20">15 pág. = 960 KiB</text>
+  <rect x="370" y="450" width="185" height="44" rx="8" fill="#0F172A" stroke="#10B981" stroke-opacity="0.5" />
+  <text x="395" y="479" fill="#34D399" font-family="monospace" font-size="20">49 B / part.</text>
+</svg>

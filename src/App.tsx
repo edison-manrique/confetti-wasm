@@ -7,10 +7,11 @@ import {
   type SimulationStats,
 } from './components/ConfettiCanvas';
 import { ControlSidebar } from './components/ControlSidebar';
+import { DocsPanel } from './components/DocsPanel';
 import { MemoryInspectorPanel } from './components/MemoryInspectorPanel';
 import { PaymentSuccessSimulator } from './components/PaymentSuccessSimulator';
 import { VerificationPanel } from './components/VerificationPanel';
-import { ConfettiEngine } from './engine/confettiWasm';
+import { ConfettiEngine, getDefaultWasmUrl } from './engine/confettiWasm';
 import {
   type BenchmarkResult,
   runPhysicsBenchmark,
@@ -18,7 +19,7 @@ import {
   type VerificationCheckResult,
 } from './engine/verification';
 
-type ActiveTab = 'simulator' | 'checkout' | 'tests' | 'benchmark' | 'memory';
+type ActiveTab = 'simulator' | 'checkout' | 'docs' | 'tests' | 'benchmark' | 'memory';
 
 const INITIAL_CAPACITY = 19200;
 
@@ -98,7 +99,7 @@ export default function App() {
 
     const bootWasm = async () => {
       try {
-        const res = await fetch('/confetti.wasm');
+        const res = await fetch(getDefaultWasmUrl());
         if (!res.ok) {
           throw new Error(`HTTP ${res.status} al cargar /confetti.wasm`);
         }
@@ -229,6 +230,7 @@ export default function App() {
     [
       { id: 'simulator', label: 'Simulador' },
       { id: 'checkout', label: 'Pago Exitoso' },
+      { id: 'docs', label: 'Documentación' },
       {
         id: 'tests',
         label: testResults().length > 0 ? `Pruebas (${passedTests()}/${testResults().length})` : 'Pruebas',
@@ -252,9 +254,9 @@ export default function App() {
               e.preventDefault();
               setActiveTab('simulator');
             }}
-            class="font-display text-base font-bold tracking-tight text-slate-100 whitespace-nowrap shrink-0"
+            class="font-mono text-base font-bold tracking-tight text-slate-100 whitespace-nowrap shrink-0"
           >
-            ZeroAlloc Confetti
+            confetti-wasm
           </a>
 
           <nav aria-label="Vistas del laboratorio" class="hidden md:flex items-center gap-6 h-full">
@@ -438,6 +440,10 @@ export default function App() {
 
         <Show when={activeTab() === 'checkout'}>
           <PaymentSuccessSimulator wasmBytes={wasmBytes()} />
+        </Show>
+
+        <Show when={activeTab() === 'docs'}>
+          <DocsPanel onNavigateTab={(tab) => setActiveTab(tab)} />
         </Show>
 
         <Show when={activeTab() === 'tests'}>

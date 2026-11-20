@@ -1,15 +1,45 @@
 {
-  "name": "react-example",
-  "private": true,
-  "version": "0.0.0",
+  "name": "confetti-wasm",
+  "private": false,
+  "version": "1.0.0",
+  "description": "Motor de confeti de alto rendimiento en AssemblyScript WASM con arena estática zero-alloc (< 1 MB) y SIMD v128",
   "type": "module",
+  "license": "MIT",
+  "main": "./dist-lib/index.js",
+  "types": "./dist-lib/lib.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist-lib/lib.d.ts",
+      "import": "./dist-lib/index.js"
+    },
+    "./wasm": "./dist-lib/confetti.wasm"
+  },
+  "files": [
+    "dist-lib",
+    "README.md"
+  ],
+  "keywords": [
+    "confetti",
+    "webassembly",
+    "wasm",
+    "assemblyscript",
+    "simd",
+    "zero-alloc",
+    "soa",
+    "particles",
+    "canvas"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "npm run build:wasm && vite build",
     "build:wasm": "asc assembly/confetti.ts --target release",
+    "build:lib": "npm run build:wasm && rm -rf dist-lib && esbuild src/lib.ts --bundle --format=esm --platform=browser --target=es2022 --outfile=dist-lib/index.js && tsc -p tsconfig.lib.json && cp public/confetti.wasm dist-lib/confetti.wasm",
     "test": "tsx --test tests/confetti.test.ts",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "rm -rf dist dist-lib server.js",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

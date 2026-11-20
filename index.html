@@ -3,12 +3,77 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ZeroAlloc Confetti WASM — Motor de Partículas en AssemblyScript</title>
-    <meta name="description" content="Motor de confeti de alto rendimiento en AssemblyScript con arquitectura Structure-of-Arrays (SoA) zero-alloc, suite de pruebas y benchmark comparativo." />
-    <meta property="og:title" content="ZeroAlloc Confetti WASM — Motor de Partículas en AssemblyScript" />
-    <meta property="og:description" content="Motor de confeti de alto rendimiento en AssemblyScript con arquitectura Structure-of-Arrays (SoA) zero-alloc, suite de pruebas y benchmark comparativo." />
+    <title>confetti-wasm — Motor de Confeti Zero-Alloc en WASM</title>
+    <meta
+      name="description"
+      content="Librería de confeti de alto rendimiento en AssemblyScript WebAssembly (< 1 MB), física SIMD v128, ejemplos SolidJS y benchmark en vivo."
+    />
+    <meta
+      name="keywords"
+      content="confetti-wasm, confetti, webassembly, wasm, assemblyscript, simd, zero-alloc, solidjs, canvas, particles"
+    />
+    <meta name="author" content="confetti-wasm" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#07090E" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+    <link rel="shortcut icon" href="%BASE_URL%favicon.svg" />
+
+    <!-- OpenGraph -->
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="confetti-wasm" />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:title" content="confetti-wasm — Motor de Confeti Zero-Alloc en WASM" />
+    <meta
+      property="og:description"
+      content="Librería de confeti de alto rendimiento en AssemblyScript WebAssembly (< 1 MB), física SIMD v128, ejemplos SolidJS y benchmark en vivo."
+    />
+    <meta property="og:image" content="%BASE_URL%og-card.svg" />
+
+    <!-- Twitter / X Cards -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="confetti-wasm — Motor de Confeti Zero-Alloc en WASM" />
+    <meta
+      name="twitter:description"
+      content="Librería de confeti de alto rendimiento en AssemblyScript WebAssembly (< 1 MB), física SIMD v128, ejemplos SolidJS y benchmark en vivo."
+    />
+    <meta name="twitter:image" content="%BASE_URL%og-card.svg" />
+
+    <!-- Canonical URL resolution -->
+    <script>
+      (function () {
+        var canonicalUrl = window.location.origin + window.location.pathname;
+        var link = document.createElement('link');
+        link.rel = 'canonical';
+        link.href = canonicalUrl;
+        document.head.appendChild(link);
+
+        var ogUrl = document.createElement('meta');
+        ogUrl.setAttribute('property', 'og:url');
+        ogUrl.content = canonicalUrl;
+        document.head.appendChild(ogUrl);
+      })();
+    </script>
+
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "confetti-wasm",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Web",
+        "softwareVersion": "1.0.0",
+        "description": "Librería de confeti de alto rendimiento en AssemblyScript WebAssembly (< 1 MB) con arquitectura SoA zero-alloc, física SIMD v128 y ejemplos SolidJS.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

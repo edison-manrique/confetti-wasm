@@ -137,6 +137,12 @@ function readGlobal(val: WebAssembly.Global | number | undefined, fallback: numb
   return fallback;
 }
 
+export function getDefaultWasmUrl(): string {
+  const env = (import.meta as { env?: { BASE_URL?: string } }).env;
+  const base = env?.BASE_URL ?? '/';
+  return `${base.endsWith('/') ? base : `${base}/`}confetti.wasm`;
+}
+
 export class ConfettiEngine {
   public readonly exports: ConfettiWasmExports;
   public views!: SoAViews;
@@ -146,7 +152,7 @@ export class ConfettiEngine {
     this.exports = exports;
   }
 
-  public static async fromUrl(url = '/confetti.wasm'): Promise<ConfettiEngine> {
+  public static async fromUrl(url = getDefaultWasmUrl()): Promise<ConfettiEngine> {
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`No se pudo cargar ${url}: HTTP ${response.status}`);

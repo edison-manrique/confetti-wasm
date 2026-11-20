@@ -2,15 +2,51 @@
 
 @layer base {
   :root {
+    color-scheme: dark;
     --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
     --font-sans: 'DM Sans', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   }
 
+  html,
   body {
     font-family: var(--font-sans);
     background-color: #07090E;
     color: #F1F5F9;
+    scrollbar-gutter: stable;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #243247 #07090E;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: #07090E;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: #1E293B;
+    border-radius: 9999px;
+    border: 2px solid #07090E;
+    transition: background-color 150ms ease;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: #0891B2;
+  }
+
+  *::-webkit-scrollbar-thumb:active {
+    background-color: #22D3EE;
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: #07090E;
   }
 
   h1, h2, h3, .font-display {
