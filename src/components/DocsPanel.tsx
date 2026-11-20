@@ -101,7 +101,7 @@ export function PaymentCelebration() {
   },
   {
     id: 'ghpages',
-    title: '3. Publicar en GitHub Pages y npm con GitHub Actions',
+    title: '3. Publicar en GitHub Pages y npm (OIDC Trusted Publishing)',
     filename: 'publish.sh',
     code: `# A. Subir repositorio y activar GitHub Pages (.github/workflows/deploy-pages.yml)
 git init
@@ -112,13 +112,13 @@ git remote add origin https://github.com/TU_USUARIO/confetti-wasm.git
 git push -u origin main
 # En GitHub: Settings -> Pages -> Source: "GitHub Actions"
 
-# B. Publicar en npm vía GitHub Actions (.github/workflows/publish-npm.yml)
-# 1) Crea un Granular Access Token en https://www.npmjs.com/settings/~/tokens
-#    (permiso Read and write sobre paquetes + Bypass 2FA para CI)
-# 2) Guárdalo en GitHub: Settings -> Secrets and variables -> Actions -> NPM_TOKEN
-# 3) Crea y sube un tag de versión:
-git tag v1.0.0
-git push origin v1.0.0`,
+# B. Publicar en npm con sello "OIDC GitHub Actions" (.github/workflows/publish-npm.yml)
+# 1) Primer publish único para crear el paquete en npmjs.com:
+npm login && npm run build:lib && npm publish --access public
+# 2) En npmjs.com/package/confetti-wasm/access -> Trusted Publisher -> GitHub Actions:
+#    Workflow filename: publish-npm.yml (sin NPM_TOKEN ni Bypass 2FA)
+# 3) Siguientes versiones automáticas por OIDC:
+npm version patch && git push origin main --follow-tags`,
   },
 ];
 

@@ -114,21 +114,27 @@ En GitHub activa **Settings → Pages → Build and deployment → Source: GitHu
 
 ---
 
-## Publicación en npm con GitHub Actions
+## Publicación en npm con GitHub Actions (Trusted Publishing OIDC)
 
-El repositorio incluye `.github/workflows/publish-npm.yml` para publicar `confetti-wasm` automáticamente con **npm Provenance** cada vez que subes un tag `v*` (por ejemplo `v1.0.0`) o lanzas el workflow manualmente desde la pestaña **Actions**.
+El repositorio incluye `.github/workflows/publish-npm.yml` configurado para **Trusted Publishing (OIDC)** sin necesidad de tokens ni contraseñas (`NPM_TOKEN` ni *Bypass 2FA*), generando automáticamente el sello **`OIDC GitHub Actions`** en npmjs.com.
 
-### Opción recomendada: Token Granular en GitHub Secrets (`NPM_TOKEN`)
+### Configuración única (3 pasos)
 
-1. Inicia sesión en [npmjs.com](https://www.npmjs.com) y abre **Access Tokens → Generate New Token → Granular Access Token**.
-2. Asigna permisos **Read and write** sobre paquetes (con *Bypass two-factor authentication* activado para CI).
-3. En tu repositorio de GitHub ve a **Settings → Secrets and variables → Actions → New repository secret**, crea el secreto `NPM_TOKEN` con ese token.
-4. Sube un tag para disparar la publicación automática:
+1. **Primer registro del paquete (solo la primera vez):** como `confetti-wasm` todavía no existe en npm, la sección *Trusted Publisher* aparece dentro del paquete una vez creado. Desde tu terminal local ejecuta:
+   ```bash
+   npm login
+   npm run build:lib
+   npm publish --access public
+   ```
+2. **Vincular Trusted Publisher en npmjs.com:** entra a tu paquete en `https://www.npmjs.com/package/confetti-wasm/access` → **Trusted Publisher** → **GitHub Actions** y completa:
+   - **Organization or user**: tu usuario u organización de GitHub
+   - **Repository**: `confetti-wasm` (el nombre de tu repo)
+   - **Workflow filename**: `publish-npm.yml` *(exacto)*
+3. **Siguientes versiones 100% automáticas sin tokens:**
+   ```bash
+   npm version patch
+   git push origin main --follow-tags
+   ```
+   GitHub Actions compilará el WASM, correrá los tests y publicará por OIDC con el badge **OIDC GitHub Actions**.
 
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-> Si prefieres publicar desde tu terminal local sin CI, ejecuta `npm login`, luego `npm run build:lib` y finalmente `npm publish --access public`.
 
